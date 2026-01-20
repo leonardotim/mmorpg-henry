@@ -1,0 +1,117 @@
+{
+  "Username": "admin",
+  "Password": "admin",
+  "X": 1272.8403999999978,
+  "Y": 303.9441999999998,
+  "Health": 20,
+  "Keybindings": {
+    "Bind": 1,
+    "Down": 18,
+    "Equipment": 4,
+    "Hotbar0": 43,
+    "Hotbar1": 44,
+    "Hotbar2": 45,
+    "Hotbar3": 46,
+    "Hotbar4": 47,
+    "Hotbar5": 48,
+    "Hotbar6": 49,
+    "Hotbar7": 50,
+    "Hotbar8": 51,
+    "Hotbar9": 52,
+    "Inventory": 8,
+    "Left": 0,
+    "Menu": 56,
+    "Right": 3,
+    "Up": 22,
+    "Weapon1": 44,
+    "Weapon2": 45
+  },
+  "DebugSettings": null,
+  "Inventory": [
+    {
+      "Index": 3,
+      "ItemID": "bow_starter",
+      "Quantity": 1
+    }
+  ],
+  "Hotbar": [
+    {
+      "Type": "Item",
+      "RefID": "bow_starter"
+    },
+    {
+      "Type": "Item",
+      "RefID": "sword_starter"
+    },
+    {
+      "Type": "Spell",
+      "RefID": "fireball"
+    },
+    {
+      "Type": "Spell",
+      "RefID": "heal"
+    },
+    {
+      "Type": "",
+      "RefID": ""
+    },
+    {
+      "Type": "",
+      "RefID": ""
+    },
+    {
+      "Type": "",
+      "RefID": ""
+    },
+    {
+      "Type": "",
+      "RefID": ""
+    },
+    {
+      "Type": "",
+      "RefID": ""
+    },
+    {
+      "Type": "",
+      "RefID": ""
+    }
+  ],
+  "Equipment": [
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": "sword_starter"
+    },
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": ""
+    },
+    {
+      "ItemID": ""
+    }
+  ],
+  "UnlockedSpells": [
+    "fireball",
+    "heal"
+  ],
+  "OpenMenus": {
+    "Binds": true,
+    "Inventory": true,
+    "Spells": true
+  }
+}
