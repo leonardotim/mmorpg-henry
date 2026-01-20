@@ -7,8 +7,8 @@
 *.dylib
 *.test
 *.out
-server
-client
+/server
+/client
 main
 henry
 test_client
