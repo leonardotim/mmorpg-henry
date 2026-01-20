@@ -281,7 +281,7 @@ func (s *AISystem) Update(dt float64) {
 				if ai.StateTimer <= 0 {
 					s.pickNewState(ai)
 				}
-				s.applyWanderState(ai, input)
+				s.applyWanderState(ai, input, transform)
 			}
 		}
 
@@ -303,17 +303,25 @@ func (s *AISystem) pickNewState(ai *components.AIComponent) {
 	}
 }
 
-func (s *AISystem) applyWanderState(ai *components.AIComponent, input *components.InputComponent) {
+func (s *AISystem) applyWanderState(ai *components.AIComponent, input *components.InputComponent, transform *components.TransformComponent) {
 	if ai.State == "move" {
 		switch ai.MoveDirection {
 		case 0: // Up
 			input.Up = true
+			input.MouseX = transform.X
+			input.MouseY = transform.Y - 100
 		case 1: // Down
 			input.Down = true
+			input.MouseX = transform.X
+			input.MouseY = transform.Y + 100
 		case 2: // Left
 			input.Left = true
+			input.MouseX = transform.X - 100
+			input.MouseY = transform.Y
 		case 3: // Right
 			input.Right = true
+			input.MouseX = transform.X + 100
+			input.MouseY = transform.Y
 		}
 	}
 }

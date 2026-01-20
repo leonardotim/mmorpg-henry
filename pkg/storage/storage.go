@@ -20,6 +20,7 @@ type PlayerSaveData struct {
 	Equipment      [9]EquipmentSlotSave
 	UnlockedSpells []string
 	OpenMenus      map[string]bool // WindowName -> IsVisible
+	IsRunning      bool
 }
 
 type InventorySlotSave struct {

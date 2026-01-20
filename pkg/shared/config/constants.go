@@ -6,7 +6,7 @@ const (
 	ScreenHeight = 480
 
 	// Physics
-	TileSize     = 32
+	TileSize     = 64
 	DefaultSpeed = 2.0
 
 	// Keybindings
@@ -14,6 +14,7 @@ const (
 	ActionDown      = "Down"
 	ActionLeft      = "Left"
 	ActionRight     = "Right"
+	ActionRun       = "Run"
 	ActionAttack    = "Attack"
 	ActionWeapon1   = "Weapon1"
 	ActionWeapon2   = "Weapon2"

@@ -39,6 +39,19 @@ func (s *PersistenceSystem) SavePlayer(id ecs.Entity, username string) error {
 		Health:      stats.CurrentHealth,
 		Keybindings: existing.Keybindings,
 		OpenMenus:   existing.OpenMenus,
+		IsRunning:   existing.IsRunning,
+	}
+
+	// Update Keybindings from world component if present
+	kb, _ := ecs.GetComponent[components.KeybindingsComponent](s.World, id)
+	if kb != nil {
+		data.Keybindings = kb.Bindings
+	}
+
+	// Update IsRunning from world component if present
+	input, _ := ecs.GetComponent[components.InputComponent](s.World, id)
+	if input != nil {
+		data.IsRunning = input.IsRunning
 	}
 
 	// Save Inventory

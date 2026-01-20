@@ -7,6 +7,7 @@ import (
 	"henry/pkg/client/assets"
 	"henry/pkg/client/systems"
 	"henry/pkg/network"
+	"henry/pkg/shared/config"
 	protocol "henry/pkg/shared/network"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -62,6 +63,7 @@ func NewGame() *Game {
 	g.Keys["Equipment"] = ebiten.KeyE
 	g.Keys["Menu"] = ebiten.KeyEscape
 	g.Keys["Bind"] = ebiten.KeyB
+	g.Keys[config.ActionRun] = ebiten.KeyShift
 	// MouseButtonLeft is handled separately as it's not ebiten.Key
 
 	// Initialize Systems
@@ -90,7 +92,8 @@ func NewGame() *Game {
 		} else {
 			var debugSettings map[string]bool
 			var openMenus map[string]bool
-			keys, debugSettings, openMenus, err = g.Client.Connect("127.0.0.1:8080", user, pass)
+			var isRunning bool // Declare isRunning
+			keys, debugSettings, openMenus, isRunning, err = g.Client.Connect("127.0.0.1:8080", user, pass)
 			if err != nil {
 				fmt.Printf("Login Error: %v\n", err)
 				return
@@ -99,6 +102,7 @@ func NewGame() *Game {
 			g.Username = user
 			g.UISystem.HideLogin()
 			g.UISystem.ApplyOpenMenus(openMenus)
+			g.InputSystem.SetRunning(isRunning) // Pass the persisted state
 
 			// Apply Keys
 			if keys != nil {

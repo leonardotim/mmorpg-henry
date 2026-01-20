@@ -139,6 +139,7 @@ type LoginResponsePacket struct {
 	Keybindings    map[string]int
 	DebugSettings  map[string]bool
 	OpenMenus      map[string]bool
+	IsRunning      bool
 }
 
 // Client -> Server

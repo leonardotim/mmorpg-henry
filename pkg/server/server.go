@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"image/color"
 	"log"
+	"math"
 	"net"
 	"os"
 	"os/signal"
@@ -16,6 +17,7 @@ import (
 	"henry/pkg/network"
 	"henry/pkg/server/systems"
 	"henry/pkg/shared/components"
+	"henry/pkg/shared/config"
 	"henry/pkg/shared/ecs"
 	protocol "henry/pkg/shared/network"
 	"henry/pkg/shared/world"
@@ -126,7 +128,7 @@ func (s *GameServer) SpawnCharacter(x, y float64, charID string) {
 	npc := s.World.NewEntity()
 	s.World.AddComponent(npc, components.TransformComponent{X: x, Y: y})
 	s.World.AddComponent(npc, components.PhysicsComponent{Speed: def.Speed})
-	s.World.AddComponent(npc, components.SpriteComponent{Width: def.SpriteWidth, Height: def.SpriteHeight, Color: def.Color})
+	s.World.AddComponent(npc, components.SpriteComponent{Width: def.SpriteWidth, Height: def.SpriteHeight, Color: def.Color, CharType: def.SpriteID})
 	s.World.AddComponent(npc, components.StatsComponent{MaxHealth: def.MaxHealth, CurrentHealth: def.MaxHealth})
 	s.World.AddComponent(npc, components.InputComponent{})
 
@@ -150,6 +152,7 @@ func (s *GameServer) SpawnCharacter(x, y float64, charID string) {
 
 	// Respawn Component
 	s.World.AddComponent(npc, components.RespawnComponent{
+		CharID:       charID,
 		SpawnX:       x,
 		SpawnY:       y,
 		RespawnTimer: 0,
@@ -215,10 +218,10 @@ func (s *GameServer) HandleConnection(conn net.Conn) {
 			currentHealth := saved.Health
 
 			s.World.AddComponent(playerEntity, components.TransformComponent{X: spawnX, Y: spawnY})
-			s.World.AddComponent(playerEntity, components.PhysicsComponent{Speed: 6})
-			s.World.AddComponent(playerEntity, components.SpriteComponent{Width: 32, Height: 32, Color: color.RGBA{R: 0, G: 255, B: 0, A: 255}})
+			s.World.AddComponent(playerEntity, components.PhysicsComponent{Speed: 3.0})
+			s.World.AddComponent(playerEntity, components.SpriteComponent{Width: 32, Height: 32, Color: color.RGBA{R: 0, G: 255, B: 0, A: 255}, CharType: "player"})
 			s.World.AddComponent(playerEntity, components.StatsComponent{MaxHealth: 100, CurrentHealth: currentHealth})
-			s.World.AddComponent(playerEntity, components.InputComponent{})
+			s.World.AddComponent(playerEntity, components.InputComponent{IsRunning: saved.IsRunning})
 
 			// Initial stats already added above
 			// Default weapon stats now fetched dynamically in HandleAttack
@@ -280,15 +283,26 @@ func (s *GameServer) HandleConnection(conn net.Conn) {
 			if keybindings == nil {
 				keybindings = make(map[string]int)
 			}
+			s.World.AddComponent(playerEntity, components.KeybindingsComponent{Bindings: keybindings})
+
 			// Merge Defaults (Ensure new keys like "Spells" are present)
 			// KeyM = 12 (A=0, ..., I=8, ..., M=12)
 			defaults := map[string]int{
-				"Spells": 12,
+				"Spells":         12, // M
+				config.ActionRun: 58, // Shift
 			}
+			anyMerged := false
 			for k, v := range defaults {
 				if _, exists := keybindings[k]; !exists {
 					keybindings[k] = v
+					anyMerged = true
 				}
+			}
+
+			if anyMerged {
+				// Update component so PersistenceSystem picks it up
+				s.World.AddComponent(playerEntity, components.KeybindingsComponent{Bindings: keybindings})
+				s.PersistenceSystem.SavePlayer(playerEntity, username)
 			}
 
 			player = &Player{
@@ -316,6 +330,7 @@ func (s *GameServer) HandleConnection(conn net.Conn) {
 					Keybindings:    keybindings,
 					DebugSettings:  saved.DebugSettings,
 					OpenMenus:      saved.OpenMenus,
+					IsRunning:      saved.IsRunning,
 				},
 			}
 			if err := encoder.Encode(response); err != nil {
@@ -348,6 +363,8 @@ func (s *GameServer) HandleConnection(conn net.Conn) {
 			currData, err := storage.LoadPlayer(username)
 			if err == nil && currData != nil {
 				currData.Keybindings = data.Keybindings
+				// Update component as well
+				s.World.AddComponent(playerEntity, components.KeybindingsComponent{Bindings: data.Keybindings})
 				storage.SavePlayer(*currData)
 				log.Printf("Updated keybindings for %s", username)
 			}
@@ -623,22 +640,48 @@ func (s *GameServer) UpdateRespawn(dt float64) {
 			respawn.IsDead = false
 			s.World.AddComponent(id, *respawn)
 
-			// Restore Components
-			s.World.AddComponent(id, components.TransformComponent{X: respawn.SpawnX, Y: respawn.SpawnY})
-			s.World.AddComponent(id, components.PhysicsComponent{Speed: 6})
-			s.World.AddComponent(id, components.SpriteComponent{Width: 32, Height: 32, Color: color.RGBA{R: 255, G: 255, B: 0, A: 255}})
-			s.World.AddComponent(id, components.StatsComponent{MaxHealth: 50, CurrentHealth: 50})
+			// Get Character Definition for restoration
+			def, exists := characters.Get(respawn.CharID)
+			if !exists {
+				// Fallback to basic guard if somehow missing, but this shouldn't happen
+				log.Printf("Warning: Missing character definition %s during respawn of entity %d", respawn.CharID, id)
+				s.World.AddComponent(id, components.TransformComponent{X: respawn.SpawnX, Y: respawn.SpawnY})
+				s.World.AddComponent(id, components.PhysicsComponent{Speed: 3.0})
+				s.World.AddComponent(id, components.SpriteComponent{Width: 32, Height: 32, Color: color.RGBA{R: 255, G: 255, B: 0, A: 255}})
+				s.World.AddComponent(id, components.StatsComponent{MaxHealth: 50, CurrentHealth: 50})
+			} else {
+				// Restore Components using Definition
+				s.World.AddComponent(id, components.TransformComponent{X: respawn.SpawnX, Y: respawn.SpawnY})
+				s.World.AddComponent(id, components.PhysicsComponent{Speed: def.Speed})
+				s.World.AddComponent(id, components.SpriteComponent{
+					Width:    def.SpriteWidth,
+					Height:   def.SpriteHeight,
+					Color:    def.Color,
+					CharType: def.SpriteID,
+				})
+				s.World.AddComponent(id, components.StatsComponent{MaxHealth: def.MaxHealth, CurrentHealth: def.MaxHealth})
+
+				// AI Component (Restore original definition settings)
+				s.World.AddComponent(id, components.AIComponent{
+					Type:         def.AIType,
+					State:        "wander",
+					StateTimer:   1.0,
+					IsAggressive: def.IsAggressive,
+					Faction:      def.Faction,
+					SpawnX:       respawn.SpawnX,
+					SpawnY:       respawn.SpawnY,
+					LeashRange:   600.0,
+				})
+
+				// Equipment (Restore original weapon if any)
+				if def.WeaponID != "" {
+					equip := components.EquipmentComponent{}
+					equip.Slots[components.SlotWeapon] = components.EquipmentSlot{ItemID: def.WeaponID}
+					s.World.AddComponent(id, equip)
+				}
+			}
+
 			s.World.AddComponent(id, components.InputComponent{})
-			s.World.AddComponent(id, components.AIComponent{
-				Type:         "wander",
-				State:        "wander", // Start wandering, not idle, to ensure logic kicks in
-				StateTimer:   1.0,
-				IsAggressive: true, // Guards are aggressive
-				Faction:      1,
-				SpawnX:       respawn.SpawnX,
-				SpawnY:       respawn.SpawnY,
-				LeashRange:   600.0,
-			})
 			log.Printf("Entity %d respawned at %.1f, %.1f", id, respawn.SpawnX, respawn.SpawnY)
 		} else {
 			s.World.AddComponent(id, *respawn)
@@ -774,9 +817,10 @@ func (s *GameServer) HandleAttack(id ecs.Entity) {
 		spawnX := startX + dirX*spawnDist
 		spawnY := startY + dirY*spawnDist
 
-		s.World.AddComponent(proj, components.TransformComponent{X: spawnX, Y: spawnY})
+		rot := math.Atan2(dirY, dirX) + math.Pi/4
+		s.World.AddComponent(proj, components.TransformComponent{X: spawnX, Y: spawnY, Rotation: rot})
 		s.World.AddComponent(proj, components.PhysicsComponent{VelX: dirX * speed, VelY: dirY * speed, Speed: speed})
-		s.World.AddComponent(proj, components.SpriteComponent{Width: 8, Height: 8, Color: color.RGBA{R: 255, G: 255, B: 0, A: 255}})
+		s.World.AddComponent(proj, components.SpriteComponent{Width: 8, Height: 8, Color: color.RGBA{R: 255, G: 255, B: 0, A: 255}, Texture: "arrow"})
 		s.World.AddComponent(proj, components.ProjectileComponent{OwnerID: id, Damage: damage, Lifetime: lifetime})
 
 	} else if attackType == components.AttackTypeMelee {
@@ -785,7 +829,8 @@ func (s *GameServer) HandleAttack(id ecs.Entity) {
 		offsetX := dirX * 30
 		offsetY := dirY * 30
 
-		s.World.AddComponent(slash, components.TransformComponent{X: transform.X + offsetX, Y: transform.Y + offsetY})
+		rot := math.Atan2(dirY, dirX)
+		s.World.AddComponent(slash, components.TransformComponent{X: transform.X + offsetX, Y: transform.Y + offsetY, Rotation: rot})
 		s.World.AddComponent(slash, components.SpriteComponent{Width: 40, Height: 40, Color: color.RGBA{R: 255, G: 0, B: 0, A: 255}})
 		s.World.AddComponent(slash, components.ProjectileComponent{OwnerID: id, Damage: damage, Lifetime: 15}) // Melee slash duration in ticks
 	}
@@ -1245,9 +1290,10 @@ func (s *GameServer) handleSpellCast(id ecs.Entity, spellID string, targetX, tar
 		spawnX := transform.X + dirX*spawnDist
 		spawnY := transform.Y + dirY*spawnDist
 
-		s.World.AddComponent(proj, components.TransformComponent{X: spawnX, Y: spawnY})
+		rot := math.Atan2(dirY, dirX) + math.Pi/4
+		s.World.AddComponent(proj, components.TransformComponent{X: spawnX, Y: spawnY, Rotation: rot})
 		s.World.AddComponent(proj, components.PhysicsComponent{VelX: dirX * speed, VelY: dirY * speed, Speed: speed})
-		s.World.AddComponent(proj, components.SpriteComponent{Width: 12, Height: 12, Color: spellDef.Color})
+		s.World.AddComponent(proj, components.SpriteComponent{Width: 12, Height: 12, Color: spellDef.Color, Texture: "fireball"})
 		s.World.AddComponent(proj, components.ProjectileComponent{OwnerID: id, Damage: damage, Lifetime: lifetime})
 
 	} else if spellID == "heal" {

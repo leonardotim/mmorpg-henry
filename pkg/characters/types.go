@@ -12,6 +12,7 @@ type CharacterDefinition struct {
 	Description string
 
 	// Visuals
+	SpriteID     string // Asset Key e.g. "guard"
 	SpriteWidth  float64
 	SpriteHeight float64
 	Color        color.RGBA

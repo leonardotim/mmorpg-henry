@@ -2,20 +2,23 @@ package systems
 
 import (
 	"henry/pkg/shared/components"
+	"henry/pkg/shared/config"
 	"henry/pkg/shared/ecs"
 	"henry/pkg/shared/world"
 	"math"
 )
 
 type MovementSystem struct {
-	World *ecs.World
-	Maps  map[int]*world.Map
+	World        *ecs.World
+	Maps         map[int]*world.Map
+	CombatTimers map[ecs.Entity]float64
 }
 
 func NewMovementSystem(world *ecs.World, atlas map[int]*world.Map) *MovementSystem {
 	return &MovementSystem{
-		World: world,
-		Maps:  atlas,
+		World:        world,
+		Maps:         atlas,
+		CombatTimers: make(map[ecs.Entity]float64),
 	}
 }
 
@@ -23,11 +26,11 @@ func (s *MovementSystem) Update(dt float64) {
 	// Query all entities with Input, Transform, and Physics components
 	entities := ecs.Query[components.InputComponent](s.World)
 	for _, id := range entities {
-		s.UpdateEntityMovement(id)
+		s.UpdateEntityMovement(id, dt)
 	}
 }
 
-func (s *MovementSystem) UpdateEntityMovement(id ecs.Entity) {
+func (s *MovementSystem) UpdateEntityMovement(id ecs.Entity, dt float64) {
 	input, _ := ecs.GetComponent[components.InputComponent](s.World, id)
 	transform, _ := ecs.GetComponent[components.TransformComponent](s.World, id)
 	phys, _ := ecs.GetComponent[components.PhysicsComponent](s.World, id)
@@ -56,12 +59,17 @@ func (s *MovementSystem) UpdateEntityMovement(id ecs.Entity) {
 		dy *= 0.7071
 	}
 
-	moveX := dx * phys.Speed
-	moveY := dy * phys.Speed
+	speed := phys.Speed
+	if input.IsRunning {
+		speed *= 2.0
+	}
 
-	// Collision box (centered in 32x32 sprite)
-	boxSize := 14.0 // Reduced for better feel (was 20.0)
-	offset := (32.0 - boxSize) / 2.0
+	moveX := dx * speed
+	moveY := dy * speed
+
+	// Collision box (centered in TileSize sprite)
+	boxSize := 24.0 // Adjusted for 64x64 (was 14 for 32x32)
+	offset := (float64(config.TileSize) - boxSize) / 2.0
 
 	z := transform.Z
 
@@ -78,7 +86,22 @@ func (s *MovementSystem) UpdateEntityMovement(id ecs.Entity) {
 	}
 
 	// Update Rotation
-	transform.Rotation = math.Atan2(input.MouseY-transform.Y, input.MouseX-transform.X)
+	combatTimer := s.CombatTimers[id]
+	if input.Attack {
+		// Combat Mode: Always face mouse
+		transform.Rotation = math.Atan2(input.MouseY-transform.Y, input.MouseX-transform.X)
+		s.CombatTimers[id] = 0.3 // Reset timer to 0.3s delay
+	} else if combatTimer > 0 {
+		// Combat Decay: Still face mouse for a bit
+		transform.Rotation = math.Atan2(input.MouseY-transform.Y, input.MouseX-transform.X)
+		s.CombatTimers[id] -= dt
+	} else if dx != 0 || dy != 0 {
+		// Movement Mode: Face walking direction
+		transform.Rotation = math.Atan2(dy, dx)
+	} else {
+		// Idle Mode: Face mouse (look around)
+		transform.Rotation = math.Atan2(input.MouseY-transform.Y, input.MouseX-transform.X)
+	}
 
 	s.World.AddComponent(id, *transform)
 }
@@ -102,8 +125,8 @@ func (s *MovementSystem) collidesWithEntities(selfID ecs.Entity, z int, x, y, w,
 			continue
 		}
 
-		boxSize := 14.0
-		offset := (32.0 - boxSize) / 2.0
+		boxSize := 24.0
+		offset := (float64(config.TileSize) - boxSize) / 2.0
 		otherX := otherTrans.X + offset
 		otherY := otherTrans.Y + offset
 
@@ -120,7 +143,7 @@ func (s *MovementSystem) collidesAt(z int, x, y, w, h float64) bool {
 		return true // No map at this Z = Solid Void? Or empty? Better block.
 	}
 
-	tileSize := 32.0
+	tileSize := float64(config.TileSize)
 	// Check all tiles the box might overlap
 	startTX := int(math.Floor(x / tileSize))
 	startTY := int(math.Floor(y / tileSize))
@@ -143,7 +166,7 @@ func (s *MovementSystem) collidesAt(z int, x, y, w, h float64) bool {
 			if objID > 0 { // Any object > 0 is solid for now (Trees mostly)
 				// Treat as Tree
 				// Assuming all objects are trees for now or centered obstructions
-				treeSize := 16.0
+				treeSize := tileSize / 2.0 // Scale tree roughly
 				offset := (tileSize - treeSize) / 2.0
 				obsX := float64(tx)*tileSize + offset
 				obsY := float64(ty)*tileSize + offset
@@ -158,7 +181,7 @@ func (s *MovementSystem) collidesAt(z int, x, y, w, h float64) bool {
 }
 
 func (s *MovementSystem) isTileSolid(tile world.Tile, tx, ty int, x, y, w, h float64) bool {
-	tileSize := 32.0
+	tileSize := float64(config.TileSize)
 	tileX := float64(tx) * tileSize
 	tileY := float64(ty) * tileSize
 
@@ -170,26 +193,31 @@ func (s *MovementSystem) isTileSolid(tile world.Tile, tx, ty int, x, y, w, h flo
 		// Special handling for partial solids (Edges/Corners)
 		// For now, let's simplify: if it claims to be solid, treat full tile as solid
 		// UNLESS we want to keep the sub-tile precision for edges.
+		// NOTE: Hardcoded 16 offset logic for water edges needs scaling too if we want it perfect.
+		// For 64x64, 16 -> 32? Or keep 16px edge?
+		// Let's assume we want substantial edge, say 1/4 or 1/2.
+		// 16 was half of 32. So let's use tileSize / 2.
+		halfTile := tileSize / 2.0
 
 		switch tile.Type {
 		case world.TileWaterEdgeTop:
-			return localY+h > 16
+			return localY+h > halfTile
 		case world.TileWaterEdgeBottom:
-			return localY < 16
+			return localY < halfTile
 		case world.TileWaterEdgeLeft:
-			return localX+w > 16
+			return localX+w > halfTile
 		case world.TileWaterEdgeRight:
-			return localX < 16
+			return localX < halfTile
 		case world.TileWaterCornerTL:
-			return localX+w > 16 && localY+h > 16
+			return localX+w > halfTile && localY+h > halfTile
 		case world.TileWaterCornerTR:
-			return localX < 16 && localY+h > 16
+			return localX < halfTile && localY+h > halfTile
 		case world.TileWaterCornerBL:
-			return localX+w > 16 && localY < 16
+			return localX+w > halfTile && localY < halfTile
 		case world.TileWaterCornerBR:
-			return localX < 16 && localY < 16
+			return localX < halfTile && localY < halfTile
 		case world.TileTree:
-			treeSize := 16.0
+			treeSize := tileSize / 2.0
 			treeOffset := (tileSize - treeSize) / 2.0
 			return s.rectOverlap(localX, localY, w, h, treeOffset, treeOffset, treeSize, treeSize)
 		default:

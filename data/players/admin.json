@@ -1,8 +1,8 @@
 {
   "Username": "admin",
   "Password": "admin",
-  "X": 1272.8403999999978,
-  "Y": 303.9441999999998,
+  "X": 1931.1543999999963,
+  "Y": 330.0213999999951,
   "Health": 20,
   "Keybindings": {
     "Bind": 1,
@@ -22,6 +22,8 @@
     "Left": 0,
     "Menu": 56,
     "Right": 3,
+    "Run": 113,
+    "Spells": 12,
     "Up": 22,
     "Weapon1": 44,
     "Weapon2": 45
@@ -30,7 +32,7 @@
   "Inventory": [
     {
       "Index": 3,
-      "ItemID": "bow_starter",
+      "ItemID": "sword_starter",
       "Quantity": 1
     }
   ],
@@ -93,7 +95,7 @@
       "ItemID": ""
     },
     {
-      "ItemID": "sword_starter"
+      "ItemID": "bow_starter"
     },
     {
       "ItemID": ""
@@ -113,5 +115,6 @@
     "Binds": true,
     "Inventory": true,
     "Spells": true
-  }
+  },
+  "IsRunning": false
 }

@@ -349,7 +349,7 @@ func (s *UISystem) InitKeybindingsUI() {
 		"Keybindings",
 	)
 
-	actions := []string{"Menu", "Up", "Down", "Left", "Right", "Inventory", "Equipment", "Spells", "Bind",
+	actions := []string{"Menu", "Up", "Down", "Left", "Right", "Run", "Inventory", "Equipment", "Spells", "Bind",
 		"Hotbar1", "Hotbar2", "Hotbar3", "Hotbar4", "Hotbar5", "Hotbar6", "Hotbar7", "Hotbar8", "Hotbar9", "Hotbar0"}
 	yOffset := 30.0
 

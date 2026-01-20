@@ -20,9 +20,11 @@ type PhysicsComponent struct {
 }
 
 type SpriteComponent struct {
-	Color  color.RGBA
-	Width  float64
-	Height float64
+	Color    color.RGBA
+	Width    float64
+	Height   float64
+	Texture  string
+	CharType string
 }
 
 // InputComponent holds the current input state for an entity
@@ -32,6 +34,7 @@ type InputComponent struct {
 	HotbarTriggers        [10]bool
 	MouseX, MouseY        float64
 	ActiveSpell           string // ID of the currently selected combat spell
+	IsRunning             bool
 }
 
 // ... (other components)
@@ -112,6 +115,7 @@ type AIComponent struct {
 
 // RespawnComponent handles entity death and respawning
 type RespawnComponent struct {
+	CharID         string // NPC Type ID (e.g. "guard_melee")
 	SpawnX, SpawnY float64
 	RespawnTimer   float64
 	IsDead         bool
@@ -120,4 +124,9 @@ type RespawnComponent struct {
 // UIStateComponent holds persistent UI visibility state
 type UIStateComponent struct {
 	OpenMenus map[string]bool
+}
+
+// KeybindingsComponent holds per-player key mapping
+type KeybindingsComponent struct {
+	Bindings map[string]int
 }
