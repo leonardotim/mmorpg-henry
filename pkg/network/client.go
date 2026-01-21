@@ -75,10 +75,10 @@ func (c *NetworkClient) Signup(address, username, password string) error {
 	return nil
 }
 
-func (c *NetworkClient) Connect(address, username, password string) (map[string]int, map[string]bool, map[string]bool, error) {
+func (c *NetworkClient) Connect(address, username, password string) (map[string]int, map[string]bool, map[string]bool, bool, error) {
 	conn, err := Dial(address)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
 	c.Conn = conn
@@ -91,21 +91,21 @@ func (c *NetworkClient) Connect(address, username, password string) (map[string]
 		Data: network.LoginPacket{Username: username, Password: password},
 	}
 	if err := c.Encoder.Encode(login); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 
 	// Wait for Login Response
 	var response network.Packet
 	if err := c.Decoder.Decode(&response); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
 	if response.Type != network.PacketLoginResponse {
-		return nil, nil, nil, fmt.Errorf("unexpected packet type: %d", response.Type)
+		return nil, nil, nil, false, fmt.Errorf("unexpected packet type: %d", response.Type)
 	}
 
 	respData := response.Data.(network.LoginResponsePacket)
 	if !respData.Success {
-		return nil, nil, nil, fmt.Errorf("login failed: %s", respData.Error)
+		return nil, nil, nil, false, fmt.Errorf("login failed: %s", respData.Error)
 	}
 
 	c.PlayerEntityID = respData.PlayerEntityID
@@ -122,7 +122,7 @@ func (c *NetworkClient) Connect(address, username, password string) (map[string]
 
 	// Start listening loop
 	go c.ListenLoop()
-	return respData.Keybindings, respData.DebugSettings, respData.OpenMenus, nil
+	return respData.Keybindings, respData.DebugSettings, respData.OpenMenus, respData.IsRunning, nil
 }
 
 func (c *NetworkClient) ListenLoop() {

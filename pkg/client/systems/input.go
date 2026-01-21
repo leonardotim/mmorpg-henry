@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"henry/pkg/network"
 	"henry/pkg/shared/components"
+	"henry/pkg/shared/config"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 type InputSystem struct {
-	Client   *network.NetworkClient
-	UISystem *UISystem // Use UISystem instead of Manager
-	Keys     map[string]ebiten.Key
+	Client    *network.NetworkClient
+	UISystem  *UISystem // Use UISystem instead of Manager
+	Keys      map[string]ebiten.Key
+	isRunning bool // Local toggle state
 }
 
 func NewInputSystem(client *network.NetworkClient, uiSystem *UISystem, keys map[string]ebiten.Key) *InputSystem {
@@ -21,6 +23,10 @@ func NewInputSystem(client *network.NetworkClient, uiSystem *UISystem, keys map[
 		UISystem: uiSystem,
 		Keys:     keys,
 	}
+}
+
+func (s *InputSystem) SetRunning(isRunning bool) {
+	s.isRunning = isRunning
 }
 
 func (s *InputSystem) Update() {
@@ -39,6 +45,12 @@ func (s *InputSystem) Update() {
 	if ebiten.IsKeyPressed(s.Keys["Right"]) {
 		input.Right = true
 	}
+
+	// Running Toggle (Shift)
+	if inpututil.IsKeyJustPressed(s.Keys[config.ActionRun]) {
+		s.isRunning = !s.isRunning
+	}
+	input.IsRunning = s.isRunning
 
 	// Always capture mouse position for rotation/facing
 	if !s.UISystem.IsMouseOverUI() {
